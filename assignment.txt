@@ -1,0 +1,122 @@
+Take-Home Assessment: Weather Proxy API
+
+Conceptual Design
+API Selection
+I picked OpenWeatherMap for one reason: I believed that it fits this exact problem.
+I needed a weather API that would let me search by city name, respond quickly, and give me structured data that I could easily work with. OpenWeatherMap did all of that, and more importantly, it didn’t force me to jump through hoops just to get started.
+Yes, there are other weather APIs, some that offer more detailed data or prettier dashboards but this one gave me exactly what I needed which in this case were: temperature, conditions, and city metadata, in a predictable and clean JSON response. That allowed me to focus on building a solid backend instead of fighting with a third-party API.
+I also appreciated that it supports metric units and returns weather condition codes that are easy to map to user-friendly categories like “sunny” or “rainy.” That made the later logic much smoother.
+So the decision was simple on my end: I had to go with something stable, clear, and fast abd OpenWeatherMap gave me that.
+
+
+Data Transformation
+The API from OpenWeatherMap gives you a lot of data, some of it useful, most of it not, at least for this project. You get things like pressure, humidity, visibility, sunrise/sunset, etc. But for someone asking “What’s the weather like in Nairobi?”, those details just get in the way.
+So I stripped it down to the essentials:
+{
+  "city": "Nairobi",
+  "temperature": 26,
+  "condition": "sunny",
+  "custom_message": "Great day for a walk."
+}
+That’s it. Four fields. Clear, clean, and exactly what the user cares about.
+I also made sure the condition values are normalized. OpenWeatherMap sometimes returns conditions like “Thunderstorm” or “Drizzle,” so I mapped those to more readable tags (like “rainy” or “cloudy”) to keep the tone consistent.
+The idea was: if someone plugged this API into their app or dashboard, it should just work, no extra filtering, no decoding.
+
+
+Caching Strategy
+Caching was non-negotiable here. Without it, every time someone requests weather for a city, we hit the external API and that gets expensive fast. It also adds delay, and it makes your app dependent on someone else’s uptime. That’s not great.
+So I built two options:
+In-Memory Cache (Default)
+This is the quick and simple solution. I store each city’s response in memory, along with a timestamp. If the request comes in again within 10 minutes, I serve it from cache. If not, I fetch new data and update it.
+It’s fast, easy to test, and doesn’t need extra setup and perfect for solo projects or local testing.
+But I also know its limits. It resets if the server restarts, and it doesn’t scale well across multiple instances.
+
+Redis Cache (Production-Ready)
+So I also added Redis, running via Docker. Same idea store city responses with a 10-minute TTL  but now, the data survives restarts and can be shared across multiple instances if needed.
+I made the Redis setup optional. If it’s running, the app uses it. If not, it falls back to in-memory. That flexibility felt important. I didn’t want someone to be blocked just because Redis wasn’t configured, but I still wanted to show I can think about production-level needs.
+This setup let me show two things:
+I understand simplicity.
+
+
+I also understand when it’s time to scale.
+
+
+
+Error Handling
+This is where I really focused because most APIs break when things go slightly wrong.
+I didn’t want that. I wanted this one to feel solid like you can poke at it, make mistakes, and it’ll still respond properly.
+Here’s how I handled it:
+❌ Missing City
+If someone calls /weather without a city query, I return a 400 Bad Request with a helpful message:
+{ "error": "City parameter is required." }
+❌ City Not Found
+If the city name is invalid or misspelled and the third-party API can’t find it, I return:
+{ "error": "City not found." }
+That’s a 404. 
+❌ Timeout or Service Down
+If OpenWeatherMap times out or fails (which can happen), I return:
+{ "error": "Weather service is currently unreachable. Please try again later." }
+Status: 503 Service Unavailable.
+This is important. I think that you never want your system to just crash when someone else’s system fails. I wrapped all API calls in try-catch blocks and gave fallback responses that explain the issue without dumping technical errors.
+❌ Unknown Errors
+If something completely unexpected happens, I catch it and return a generic 500 with:
+{ "error": "An unexpected error occurred." }
+And of course, all these are logged, with details so if something’s off, it’s traceable.
+
+
+Business Logic Mapping
+This was the fun part well, at least on my end.
+In this part, I didn’t want to just return weather conditions, I wanted the API to say something. Something a person might say. So I wrote a small mapping that turns weather conditions into short, friendly messages.
+Here’s how it works:
+
+Condition
+Custom Message
+Clear
+Great day for a walk.
+Rain
+Don’t forget your umbrella.
+Snow
+
+
+Time for some hot cocoa.
+Thunderstorm
+Might want to stay indoors today.
+Clouds
+A calm, cloudy day.
+Drizzle
+Light rain today, maybe bring a hoodie.
+Mist/Fog
+Low visibility, stay sharp out there.
+Unknown
+Stay safe out there.
+
+
+Over here it is not just about having logic but it’s about giving the API a tone. A small personality. One that feels warm and usable.
+This can easily grow I believe,  I could make it respond differently depending on time of day or temperature but for now, I kept it focused.
+
+
+
+
+Optional Enhancements
+While building the core features was the priority, I also added a few extra touches that make the API easier to use, deploy, and maintain — the kind of things that come in handy when a project starts to grow beyond a single person or use case.
+Swagger Documentation
+Since I used FastAPI, the auto-generated Swagger docs came out of the box. But I made sure to cleanly document the /weather endpoint and parameters. This makes it easier for anyone testing the API to do it right from their browser, without needing Postman or curl.
+Health Check
+I added a small /health endpoint that simply returns { "status": "ok" }. It’s the kind of thing teams rely on when they want to monitor the health of a service — and even though it’s small, it adds stability to the setup.
+Docker + Docker Compose
+To make it easier to run the project anywhere, I set up a Dockerfile and a docker-compose.yml that starts both the API and a Redis container. It’s one command to get everything running. No extra installs, no config headaches.
+Testing Helpers
+I included some sample curl commands and a Postman collection. These make it easy to test the API from different environments, especially for people who just want to try it without setting anything up.
+Async Requests
+The API calls to OpenWeatherMap are handled asynchronously using httpx. This lets the server handle multiple requests without waiting — which keeps things fast and more efficient under load.
+Environment Variables
+Instead of hardcoding API keys, I loaded them from a .env file. This way, the project stays flexible and secure, and it’s easier to move between environments (local, staging, production) without changing the code.
+
+# Weather Proxy API dependencies
+fastapi==0.95.1
+uvicorn==0.22.0
+httpx==0.24.1
+python-dotenv==1.0.0
+pydantic==1.10.7
+
+
