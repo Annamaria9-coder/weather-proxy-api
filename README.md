@@ -1,4 +1,100 @@
 
+# 📘 Conceptual Design: Weather Proxy API
+
+This project was designed for a backend assessment. The goal was to build a fast, reliable API that fetches weather data, transforms it, and adds human-readable logic — all while being production-aware (caching, error handling, Docker, etc.).
+
+---
+
+### 🌤️ API Selection
+
+I chose **OpenWeatherMap** because it’s stable, fast, and easy to work with. It allowed me to search by city, get structured JSON, and focus on backend logic rather than wrestling with an external API.  
+It also returns conditions in a format I could easily map to friendly categories like “sunny” or “rainy”.
+
+---
+
+### 🔁 Data Transformation
+
+The API gives a lot of data — but I trimmed it down to what users actually care about:
+
+```json
+{
+  "city": "Nairobi",
+  "temperature": 26,
+  "condition": "sunny",
+  "custom_message": "Great day for a walk."
+}
+
+I also normalized weather terms (like “Drizzle” → “Rainy”) to keep tone consistent. The API was built to feel ready for use in apps or dashboards — no extra filtering needed.
+
+⸻
+
+🧠 Business Logic Mapping
+
+Weather isn’t just data — it’s something people feel. I added a layer of logic that maps conditions to short, human messages:
+
+Condition	Message
+Clear	Great day for a walk.
+Rain	Don’t forget your umbrella.
+Snow	Time for some hot cocoa.
+Thunderstorm	Might want to stay indoors.
+Clouds	A calm, cloudy day.
+Drizzle	Light rain — maybe bring a hoodie.
+Mist / Fog	Low visibility — stay sharp.
+Unknown	Stay safe out there.
+
+
+
+⸻
+
+💾 Caching Strategy
+
+Every city’s weather is cached for 10 minutes. This reduces API calls, makes things faster, and protects the app from external service failures.
+	•	🧠 In-Memory (default): Quick to set up, great for local or solo use.
+	•	🧱 Redis (via Docker): Better for production or shared deployments. Optional but included.
+
+If Redis is running, the app uses it. If not, it falls back to memory — no config required.
+
+⸻
+
+❗ Error Handling
+
+I wanted this app to handle weird inputs gracefully — not just crash.
+	•	Missing city:
+→ 400 Bad Request + helpful message
+	•	Invalid city:
+→ 404 Not Found + “City not found.”
+	•	API timeout/down:
+→ 503 Service Unavailable + fallback response
+	•	Unknown error:
+→ 500 Internal Server Error
+
+⸻
+
+🔧 Optional Enhancements
+	•	Swagger UI (built-in via FastAPI)
+	•	Health check at /health
+	•	Docker & Docker Compose support
+	•	Postman & curl testing helpers
+	•	Async requests (using httpx)
+	•	Secure API keys with .env variables
+
+⸻
+
+🧭 Diagram
+
+A full conceptual flow is visualized here:
+🔗 Weather Proxy Architecture Diagram
+
+⸻
+
+💬 Final Note
+
+I didn’t want to just make something that runs — I wanted to make something clear, solid, and ready to build on. Even though I’m submitting this late, I made sure every decision was intentional, from error handling to caching to user experience.
+
+⸻
+
+
+
 # ☁️ Weather Proxy API
 
 A lightweight proxy API built with FastAPI that fetches current weather data from OpenWeatherMap, simplifies the response, adds custom human-readable messages, and implements caching to reduce redundant API calls.
